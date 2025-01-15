@@ -7,11 +7,13 @@ public class WebSocketHandler
 {
     private readonly WebSocket _webSocket;
     private readonly ILogger _logger;
+    private readonly GeminiApiClient _geminiApiClient;
 
-    public WebSocketHandler(WebSocket webSocket, ILogger logger)
+    public WebSocketHandler(WebSocket webSocket, ILogger logger, GeminiApiClient geminiApiClient)
     {
         _webSocket = webSocket;
         _logger = logger;
+        _geminiApiClient = geminiApiClient;
     }
 
     public async Task HandleConnectionAsync()
@@ -29,54 +31,38 @@ public class WebSocketHandler
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var receivedMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    _logger.LogInformation($"Received message: {receivedMessage}");
+                    _logger.LogInformation($"User's message: {receivedMessage}");
 
                     try
-                    {
-                        var jsonDocument = JsonDocument.Parse(receivedMessage);
-                        var rootElement = jsonDocument.RootElement;
+                    {       
+                        //REGISTER USER MESSAGE
+                        var userMessage = WebSocketMessage.Parse(receivedMessage);
+                            
+                        var userMessageJson = JsonSerializer.Serialize(userMessage);
+                        var userMessageBytes = Encoding.UTF8.GetBytes(userMessageJson);
 
-                        if (rootElement.ValueKind == JsonValueKind.String)
-                        {
-                            var innerJson = rootElement.GetString();
-                            jsonDocument = JsonDocument.Parse(innerJson);
-                            rootElement = jsonDocument.RootElement;
-                        }
+                        await _webSocket.SendAsync(
+                            new ArraySegment<byte>(userMessageBytes),
+                            WebSocketMessageType.Text,
+                            true,
+                            CancellationToken.None);
 
-                        if (rootElement.ValueKind == JsonValueKind.Object)
-                        {
-                            if (rootElement.TryGetProperty("text", out var textElement) && textElement.ValueKind == JsonValueKind.String &&
-                                rootElement.TryGetProperty("role", out var roleElement) && roleElement.ValueKind == JsonValueKind.String)
-                            {
-                                var text = textElement.GetString();
-                                var role = roleElement.GetString();
 
-                                var response = new WebSocketMessage
-                                {
-                                    text = text,
-                                    role = "ia"
-                                };
+                        //GET GEMINI RESPONSE
+                        var responseMessage = await _geminiApiClient.GetResponseAsync(userMessage);
 
-                                var responseJson = JsonSerializer.Serialize(response);
-                                var responseBytes = Encoding.UTF8.GetBytes(responseJson);
+                      
 
-                                await _webSocket.SendAsync(
-                                    new ArraySegment<byte>(responseBytes),
-                                    WebSocketMessageType.Text,
-                                    true,
-                                    CancellationToken.None);
+                        var responseJson = JsonSerializer.Serialize(responseMessage);
+                        var responseBytes = Encoding.UTF8.GetBytes(responseJson);
 
-                                _logger.LogInformation($"Sent response: {responseJson}");
-                            }
-                            else
-                            {
-                                throw new InvalidOperationException("The JSON object does not contain the required properties 'text' and 'role' of type 'String'.");
-                            }
-                        }
-                        else
-                        {
-                            throw new InvalidOperationException("The requested operation requires an element of type 'Object', but the target element has type 'String'.");
-                        }
+                        await _webSocket.SendAsync(
+                            new ArraySegment<byte>(responseBytes),
+                            WebSocketMessageType.Text,
+                            true,
+                            CancellationToken.None);
+
+                        _logger.LogInformation($"Received response: {responseJson}");
                     }
                     catch (JsonException ex)
                     {

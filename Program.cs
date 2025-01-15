@@ -27,11 +27,24 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddHttpClient(); // Add HttpClient service
+builder.Services.AddControllers(); // Add controllers
+
+// Register GeminiApiClient as a service
+builder.Services.AddSingleton(provider =>
+{
+    var httpClient = provider.GetRequiredService<HttpClient>();
+    var apiKey = "API_KEY"; // Api Key
+    return new GeminiApiClient(httpClient, apiKey);
+});
+
+
 var app = builder.Build();
 var logger = app.Logger;
 
 app.UseCors("AllowAngular");
 app.UseWebSockets();
+app.MapControllers();
 
 app.Map("/ws", async context =>
 {
@@ -41,7 +54,8 @@ app.Map("/ws", async context =>
         var connectionId = Guid.NewGuid().ToString();
         logger.LogInformation($"New WebSocket connection established. ID: {connectionId}");
 
-        var handler = new WebSocketHandler(webSocket, logger);
+        var geminiApiClient = app.Services.GetRequiredService<GeminiApiClient>();
+        var handler = new WebSocketHandler(webSocket, logger, geminiApiClient);
         await handler.HandleConnectionAsync();
     }
     else
