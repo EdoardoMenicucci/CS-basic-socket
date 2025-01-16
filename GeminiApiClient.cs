@@ -71,4 +71,9 @@ public class GeminiApiClient
 
         throw new InvalidOperationException("Invalid response format from Gemini API.");
     }
+    public void ResetMessageHistory()
+    {
+        _messageHistory.Clear();
+    }
+    public IReadOnlyList<WebSocketMessage> GetMessageHistory() => _messageHistory.AsReadOnly();
 }

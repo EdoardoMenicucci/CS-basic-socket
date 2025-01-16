@@ -78,5 +78,15 @@ public class WebSocketHandler
         {
             _logger.LogError($"Error in WebSocket connection: {ex.Message}");
         }
+        finally {
+            if (_webSocket.State != WebSocketState.Closed)
+            {
+                await _webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            }
+            _logger.LogInformation("WebSocket connection closed.");
+
+            // Reset message history when the connection is closed
+            _geminiApiClient.ResetMessageHistory();
+        }
     }
 }
