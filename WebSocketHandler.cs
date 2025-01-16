@@ -51,8 +51,7 @@ public class WebSocketHandler
                         //GET GEMINI RESPONSE
                         var responseMessage = await _geminiApiClient.GetResponseAsync(userMessage);
 
-                      
-
+                     
                         var responseJson = JsonSerializer.Serialize(responseMessage);
                         var responseBytes = Encoding.UTF8.GetBytes(responseJson);
 

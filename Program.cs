@@ -34,7 +34,7 @@ builder.Services.AddControllers(); // Add controllers
 builder.Services.AddSingleton(provider =>
 {
     var httpClient = provider.GetRequiredService<HttpClient>();
-    var apiKey = "API_KEY"; // Api Key
+    var apiKey = "API-KEY"; // Api Key
     return new GeminiApiClient(httpClient, apiKey);
 });
 

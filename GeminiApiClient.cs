@@ -7,29 +7,31 @@ public class GeminiApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
+    private readonly List<WebSocketMessage> _messageHistory;
 
     public GeminiApiClient(HttpClient httpClient, string apiKey)
     {
         _httpClient = httpClient;
         _apiKey = apiKey;
+        _messageHistory = new List<WebSocketMessage>();
     }
 
     public async Task<WebSocketMessage> GetResponseAsync(WebSocketMessage userMessage)
     {
+        _messageHistory.Add(userMessage);
+
         var requestUri = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={_apiKey}";
 
         var requestBody = new
         {
-            contents = new[]
+            contents = _messageHistory.ConvertAll(message => new
             {
-                new
+                role = message.role,
+                parts = new[]
                 {
-                    parts = new[]
-                    {
-                        new { text = userMessage.text }
-                    }
+                    new { text = message.text }
                 }
-            }
+            })
         };
 
         var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -53,11 +55,15 @@ public class GeminiApiClient
                     {
                         var responseText = responseTextElement.GetString();
 
-                        return new WebSocketMessage
+                        var responseMessage = new WebSocketMessage
                         {
                             text = responseText,
-                            role = "ia"
+                            role = "model"
                         };
+
+                        _messageHistory.Add(responseMessage);
+
+                        return responseMessage;
                     }
                 }
             }
