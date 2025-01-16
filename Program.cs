@@ -1,7 +1,11 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Net.WebSockets;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 
@@ -34,9 +38,35 @@ builder.Services.AddControllers(); // Add controllers
 builder.Services.AddSingleton(provider =>
 {
     var httpClient = provider.GetRequiredService<HttpClient>();
-    var apiKey = "API-KEY"; // Api Key
+    var apiKey = "api-key"; // Api Key
     return new GeminiApiClient(httpClient, apiKey);
 });
+
+//auth
+
+var key = Encoding.ASCII.GetBytes("your_very_long_secret_key_here_32_bytes_or_more");
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = "your_issuer",
+        ValidAudience = "your_audience",
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+});
+
+builder.Services.AddAuthorization();
+
 
 
 var app = builder.Build();
@@ -45,11 +75,22 @@ var logger = app.Logger;
 app.UseCors("AllowAngular");
 app.UseWebSockets();
 app.MapControllers();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.Map("/ws", async context =>
 {
     if (context.WebSockets.IsWebSocketRequest)
     {
+        var token = context.Request.Query["token"].ToString();
+        logger.LogInformation($"Recived token: {token}");
+        if (string.IsNullOrEmpty(token) || !ValidateToken(token, key, out var claimsPrincipal))
+        {
+            context.Response.StatusCode = 401;
+            logger.LogInformation($"Invalid Token");
+            return;
+        }
+
         using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
         var connectionId = Guid.NewGuid().ToString();
         logger.LogInformation($"New WebSocket connection established. ID: {connectionId}");
@@ -69,3 +110,30 @@ app.MapGet("/", () => "WebSocket Server is running!");
 
 logger.LogInformation("Application configured, starting to listen...");
 await app.RunAsync();
+
+bool ValidateToken(string token, byte[] key, out ClaimsPrincipal claimsPrincipal)
+{
+    claimsPrincipal = null;
+    var tokenHandler = new JwtSecurityTokenHandler();
+    try
+    {
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = "your_issuer",
+            ValidAudience = "your_audience",
+            IssuerSigningKey = new SymmetricSecurityKey(key)
+        };
+
+        claimsPrincipal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
+        return true;
+    }
+    catch (Exception ex)
+    {
+        logger.LogError($"Token validation failed: {ex.Message}");
+        return false;
+    }
+}
