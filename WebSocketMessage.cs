@@ -5,6 +5,8 @@ public class WebSocketMessage
     public string text { get; set; }
     public string role { get; set; }
 
+
+    //parsing del messaggio ricevuto e controllo della sua struttura
     public static WebSocketMessage Parse(string json)
     {
         var jsonDocument = JsonDocument.Parse(json);

@@ -3,13 +3,17 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+//la dicitura using chat_ia.DatabaseConf; permette di utilizzare le classi presenti nel namespace DatabaseConf
 using chat_ia.DatabaseConf;
 using chat_ia.Models;
 
+
+// Route ("[controller]) la rotta prende il nome della classe senza la dicitura Controller finale
 [ApiController]
 [Route("[controller]")]
 public class AuthController : ControllerBase
 {
+    //Ex: Questa rotta sara' quindi "auth/login"
     [HttpPost("login")]
     public IActionResult Login([FromBody] LoginModel model)
     {
@@ -41,13 +45,16 @@ public class AuthController : ControllerBase
         return Unauthorized();
     }
 
+    // "auth/register"
     [HttpPost("register")]
     public IActionResult Register([FromBody] LoginModel model)
     {
         using (var context = new AppDbContext())
         {
+            
             var exist = context.Users.SingleOrDefault(u => u.Username == model.Username);
 
+            // Se l'utente non esiste si procede con il signin
             if (exist == null)
             {    // Crea un nuovo utente
                 var newUser = new User
@@ -56,10 +63,12 @@ public class AuthController : ControllerBase
                     Password = model.Password // TODO: HASH
                 };
 
-                // Aggiungi l'utente al contesto
+                // Aggiungi l'utente al database
                 context.Users.Add(newUser);
+                //salva l'operazione
                 context.SaveChanges();
 
+                //processo generazione del token
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var key = Encoding.ASCII.GetBytes("your_very_long_secret_key_here_32_bytes_or_more");
                 var tokenDescriptor = new SecurityTokenDescriptor
@@ -79,6 +88,7 @@ public class AuthController : ControllerBase
                 return Ok(new { Token = tokenString });
             }
         }
+        //altrimenti return Unauthorized
         return Unauthorized();
     }
 }

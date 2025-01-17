@@ -24,20 +24,23 @@ public class WebSocketHandler
         {
             while (_webSocket.State == WebSocketState.Open)
             {
+                //attende la ricezione di un messaggio, e non chiude la connessione.
                 var result = await _webSocket.ReceiveAsync(
                     new ArraySegment<byte>(buffer),
                     CancellationToken.None);
 
+                //se il risultato e' un messaggio formato testo
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var receivedMessage = Encoding.UTF8.GetString(buffer, 0, result.Count);
                     _logger.LogInformation($"User's message: {receivedMessage}");
 
                     try
-                    {       
-                        //REGISTER USER MESSAGE
+                    {
+                        //Parsing del messaggio ricevuto
                         var userMessage = WebSocketMessage.Parse(receivedMessage);
-                            
+
+                        //serializzare e formattare il messaggio in formato JSON e inviarlo al client
                         var userMessageJson = JsonSerializer.Serialize(userMessage);
                         var userMessageBytes = Encoding.UTF8.GetBytes(userMessageJson);
 

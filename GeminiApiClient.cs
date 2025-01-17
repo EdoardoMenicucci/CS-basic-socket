@@ -16,6 +16,7 @@ public class GeminiApiClient
         _messageHistory = new List<WebSocketMessage>();
     }
 
+  
     public async Task<WebSocketMessage> GetResponseAsync(WebSocketMessage userMessage)
     {
         _messageHistory.Add(userMessage);

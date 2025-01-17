@@ -11,15 +11,18 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//configurazione del web server engine Kestrel
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
     serverOptions.ListenLocalhost(5000);
 });
 
+//configurazione log di output 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
+//impostazion di sicurezza per richieste da altri domini
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngular", builder =>
@@ -34,7 +37,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddHttpClient(); // Add HttpClient service
 builder.Services.AddControllers(); // Add controllers
 
-// Register GeminiApiClient as a service
+// Register GeminiApiClient as a service 
 builder.Services.AddSingleton(provider =>
 {
     var httpClient = provider.GetRequiredService<HttpClient>();
@@ -105,12 +108,14 @@ app.Map("/ws", async context =>
     }
 });
 
-
+//risponde alla richiesta get porta 5000 path / con il messaggio:
 app.MapGet("/", () => "WebSocket Server is running!");
 
 logger.LogInformation("Application configured, starting to listen...");
 await app.RunAsync();
 
+
+//settaggi per la validazione del token JWT
 bool ValidateToken(string token, byte[] key, out ClaimsPrincipal claimsPrincipal)
 {
     claimsPrincipal = null;

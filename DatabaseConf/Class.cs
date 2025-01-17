@@ -8,6 +8,7 @@ namespace chat_ia.DatabaseConf
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
+            // SQLite root path (is the project root)
             optionsBuilder.UseSqlite("Data Source=app.db");
         }
     }
